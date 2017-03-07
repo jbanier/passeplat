@@ -47,7 +47,9 @@ func main() {
 		for logParts := range channel {
 			var encoded, err = json.Marshal(logParts)
 			fmt.Println(string(encoded))
-			fmt.Println(err)
+			if err != nil {
+				fmt.Println("Failed to Marshall the syslog data:, %s", err)
+			}
 			// We are not setting a message key, which means that all messages will
 			// be distributed randomly over the different partitions.
 			partition, offset, err := dataCollector.SendMessage(&sarama.ProducerMessage{
