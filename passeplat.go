@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"flag"
-	"fmt"
 	"github.com/Shopify/sarama"
 	"gopkg.in/mcuadros/go-syslog.v2"
 	"log"
@@ -16,6 +15,7 @@ var (
 	brokers = flag.String("brokers", os.Getenv("KAFKA_PEERS"), "The Kafka brokers to connect to, as a comma separated list")
 	verbose = flag.Bool("verbose", false, "Turn on Sarama logging")
    emitjson    = flag.Bool("json", true, "preparse syslog message in syslog format, only parse the syslog fields")
+   echomessage = flag.Bool("echo", false, "echo the parsed message on stdout")
 )
 
 func main() {
@@ -49,8 +49,12 @@ func main() {
 	go func(channel syslog.LogPartsChannel) {
 		for logParts := range channel {
 			var encoded, err = json.Marshal(logParts)
-			fmt.Println(string(encoded))
-			fmt.Println(err)
+         if *echomessage {
+             log.Println(string(encoded))
+         }
+         if err != nil {
+             log.Printf("Failed to Marshal message, %s", err)
+         }
 			// We are not setting a message key, which means that all messages will
 			// be distributed randomly over the different partitions.
 			partition, offset, err := dataCollector.SendMessage(&sarama.ProducerMessage{
