@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"flag"
-	"fmt"
 	"github.com/Shopify/sarama"
 	"gopkg.in/mcuadros/go-syslog.v2"
 	"log"
@@ -15,6 +14,8 @@ var (
 	addr    = flag.String("addr", "0.0.0.0:514", "The address to bind to")
 	brokers = flag.String("brokers", os.Getenv("KAFKA_PEERS"), "The Kafka brokers to connect to, as a comma separated list")
 	verbose = flag.Bool("verbose", false, "Turn on Sarama logging")
+   emitjson    = flag.Bool("json", true, "preparse syslog message in syslog format, only parse the syslog fields")
+   echomessage = flag.Bool("echo", false, "echo the parsed message on stdout")
 )
 
 func main() {
@@ -39,18 +40,21 @@ func main() {
 	//server.SetFormat(syslog.RFC5424)
 	server.SetFormat(syslog.RFC3164) //BSD format
 	server.SetHandler(handler)
-	server.ListenUDP(*addr)
-	server.ListenTCP(*addr)
-	server.Boot()
+   err := server.ListenUDP(*addr)
+   if err != nil {
+       log.Printf("Failed to listen on UDP on port %s, %s", *addr, err)
+   }
 	dataCollector := newDataCollector(brokerList)
 
 	go func(channel syslog.LogPartsChannel) {
 		for logParts := range channel {
 			var encoded, err = json.Marshal(logParts)
-			fmt.Println(string(encoded))
-			if err != nil {
-				fmt.Println("Failed to Marshall the syslog data:, %s", err)
-			}
+         if *echomessage {
+             log.Println(string(encoded))
+         }
+         if err != nil {
+             log.Printf("Failed to Marshal message, %s", err)
+         }
 			// We are not setting a message key, which means that all messages will
 			// be distributed randomly over the different partitions.
 			partition, offset, err := dataCollector.SendMessage(&sarama.ProducerMessage{
@@ -59,11 +63,11 @@ func main() {
 			})
 
 			if err != nil {
-				fmt.Println("Failed to store your data:, %s", err)
+				log.Printf("Failed to store your data:, %s", err)
 			} else {
 				// The tuple (topic, partition, offset) can be used as a unique identifier
 				// for a message in a Kafka cluster.
-				fmt.Println("Your data is stored with unique identifier syslog-passeplat-test/%d/%d", partition, offset)
+				log.Printf("Your data is stored with unique identifier syslog-passeplat-test/%d/%d", partition, offset)
 			}
 		}
 	}(channel)
