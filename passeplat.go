@@ -40,6 +40,7 @@ func main() {
 	server.SetFormat(syslog.RFC3164) //BSD format
 	server.SetHandler(handler)
 	server.ListenUDP(*addr)
+	server.ListenTCP(*addr)
 	server.Boot()
 	dataCollector := newDataCollector(brokerList)
 
